@@ -12,7 +12,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace Daqifi.Desktop.Logger;
 
-public partial class LoggingManager : ObservableObject
+public partial class LoggingManager : ObservableObject, IDeviceMessageSource
 {
     #region Private Variables
     private readonly AppLogger AppLogger = AppLogger.Instance;
@@ -541,8 +541,21 @@ public partial class LoggingManager : ObservableObject
         return result;
     }
 
+    /// <summary>
+    /// Raised for every device-level status frame decoded off the stream,
+    /// regardless of whether a logging session is active. Consumers (e.g. the
+    /// BPD diagnostics pane) use this for live device/status readouts that must
+    /// update even when the user is not recording. Handlers run on the device's
+    /// streaming thread and must be cheap and exception-safe.
+    /// </summary>
+    public event EventHandler<DeviceMessage>? DeviceMessageReceived;
+
     public void HandleDeviceMessage(object sender, DeviceMessage sample)
     {
+        // Fire before the logging gate so live readouts see status frames even
+        // when no session is recording.
+        DeviceMessageReceived?.Invoke(sender, sample);
+
         if (!Active || CurrentMode != LoggingMode.Stream || !_hasActiveApplicationSession)
         {
             return;
