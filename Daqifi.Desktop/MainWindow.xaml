@@ -286,23 +286,6 @@
                 </ContentPresenter>
             </TabItem>
 
-            <!-- BPD -->
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel Width="76" Margin="0,14,0,14">
-                        <iconPacks:PackIconMaterial Kind="Gauge" HorizontalAlignment="Center" Height="24" Width="24"/>
-                        <TextBlock Text="BPD" Style="{StaticResource NavTabHeaderLabel}"/>
-                    </StackPanel>
-                </TabItem.Header>
-                <ContentPresenter Content="{Binding}">
-                    <ContentPresenter.ContentTemplate>
-                        <DataTemplate>
-                            <prototype:BpdPanePrototype/>
-                        </DataTemplate>
-                    </ContentPresenter.ContentTemplate>
-                </ContentPresenter>
-            </TabItem>
-
             <!-- Devices -->
             <TabItem>
                 <TabItem.Header>
