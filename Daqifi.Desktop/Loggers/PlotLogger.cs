@@ -24,6 +24,10 @@ public partial class PlotLogger : ObservableObject, ILogger
     private int _precision = 4;
     private Dictionary<(string deviceSerial, string channelName), List<DataPoint>> _loggedPoints = [];
     private Dictionary<(string deviceSerial, string channelName), LineSeries> _loggedChannels = [];
+    // Per-instance channel visibility. Each PlotLogger (i.e. each live graph) tracks its own
+    // show/hide state here instead of reading the shared IChannel.IsVisible, so multiple live
+    // graphs can toggle the same channel independently. Missing key => visible (default true).
+    private readonly Dictionary<(string deviceSerial, string channelName), bool> _channelVisibility = [];
     private readonly TimestampGapDetector _gapDetector = new();
     private string _plotStatsSummary = EMPTY_PLOT_STATS_SUMMARY;
     #endregion
@@ -281,20 +285,6 @@ public partial class PlotLogger : ObservableObject, ILogger
             TrackerFormatString = $"{channelName} ({serialSuffix})\n{{1}}: {{2:0.###}}\n{{3}}: {{4:0.######}}"
         };
 
-        // Synchronize IsVisible with the IChannel
-        if (LoggingManager.Instance != null)
-        {
-            var subscribedChannel = LoggingManager.Instance.SubscribedChannels
-                .FirstOrDefault(ch => ch.DeviceSerialNo == DeviceSerialNo && ch.Name == channelName);
-
-            if (subscribedChannel != null)
-            {
-                newLineSeries.IsVisible = subscribedChannel.IsVisible;
-            }
-            // Optional: else, default to true or log a warning if channel not found
-            // For now, if not found, it will use the default LineSeries.IsVisible (which is true)
-        }
-
         newLineSeries.YAxisKey = channelType switch
         {
             ChannelType.Analog => "Analog",
@@ -308,6 +298,10 @@ public partial class PlotLogger : ObservableObject, ILogger
         // or stats recompute could observe a half-updated dictionary/series list.
         lock (PlotModel.SyncRoot)
         {
+            // Seed this series' visibility from this graph's own per-instance state
+            // (default visible). Read under the same lock that guards _channelVisibility writes.
+            newLineSeries.IsVisible = !_channelVisibility.TryGetValue(key, out var visible) || visible;
+
             LoggedPoints.Add(key, newDataPoints);
             LoggedChannels.Add(key, newLineSeries);
             PlotModel.Series.Add(newLineSeries);
@@ -322,25 +316,43 @@ public partial class PlotLogger : ObservableObject, ILogger
         {
             lock (PlotModel.SyncRoot)
             {
-                // Iterate through subscribed channels to update series visibility
-                if (LoggingManager.Instance != null) // Ensure LoggingManager instance is available
-                {
-                    foreach (var channel in LoggingManager.Instance.SubscribedChannels)
-                    {
-                        var key = (channel.DeviceSerialNo, channel.Name);
-                        if (LoggedChannels.TryGetValue(key, out LineSeries series))
-                        {
-                            if (series.IsVisible != channel.IsVisible)
-                            {
-                                series.IsVisible = channel.IsVisible;
-                            }
-                        }
-                    }
-                }
-                PlotModel.InvalidatePlot(true); // This will redraw the plot with updated series visibility
+                // Series visibility is driven directly by SetChannelVisibility / AddChannelSeries
+                // (per-graph state), so the render tick only needs to redraw and refresh stats.
+                PlotModel.InvalidatePlot(true);
                 UpdatePlotStatsSummary();
                 _lastUpdateMilliSeconds = _stopwatch.ElapsedMilliseconds;
             }
+        }
+    }
+
+    /// <summary>
+    /// Whether the given channel is currently shown on THIS graph. Visibility is tracked per
+    /// <see cref="PlotLogger"/> instance so multiple live graphs can show/hide the same channel
+    /// independently. A channel with no recorded state defaults to visible.
+    /// </summary>
+    public bool IsChannelVisible(string deviceSerialNo, string channelName)
+    {
+        lock (PlotModel.SyncRoot)
+        {
+            return !_channelVisibility.TryGetValue((deviceSerialNo, channelName), out var visible) || visible;
+        }
+    }
+
+    /// <summary>
+    /// Shows or hides the given channel on THIS graph, updating its live series immediately if it
+    /// already exists. Per-instance, so toggling a channel here does not affect other live graphs.
+    /// </summary>
+    public void SetChannelVisibility(string deviceSerialNo, string channelName, bool isVisible)
+    {
+        lock (PlotModel.SyncRoot)
+        {
+            var key = (deviceSerialNo, channelName);
+            _channelVisibility[key] = isVisible;
+            if (LoggedChannels.TryGetValue(key, out var series))
+            {
+                series.IsVisible = isVisible;
+            }
+            PlotModel.InvalidatePlot(true);
         }
     }
 

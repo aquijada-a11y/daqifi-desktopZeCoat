@@ -214,6 +214,17 @@ public partial class DaqifiViewModel : ObservableObject, IFirmwareUpdateHost, IL
     public DatabaseLogger DbLogger { get; private set; }
     public SummaryLogger SummaryLogger { get; private set; }
 
+    /// <summary>Number of independent live graphs shown in the Live Graph grid.</summary>
+    public const int LiveGraphCount = 8;
+
+    /// <summary>
+    /// The independent live-graph panels shown as a grid on the Live Graph tab. Each owns a
+    /// dedicated <see cref="PlotLogger"/> and its own per-graph channel toggles.
+    /// <see cref="Plotter"/> aliases the first panel's plotter so the header's plot-stats hook
+    /// and the settings flyout keep resolving.
+    /// </summary>
+    public ObservableCollection<LiveGraphPanelViewModel> LiveGraphs { get; } = [];
+
     /// <summary>
     /// Gets or sets whether a logging session is active.
     /// <para>
@@ -596,8 +607,17 @@ public partial class DaqifiViewModel : ObservableObject, IFirmwareUpdateHost, IL
                     // Manage data for plotting
                     LoggingManager.Instance.PropertyChanged += UpdateUi;
                     _loggingSessionList.AttachCollection(LoggingManager.Instance.LoggingSessions);
-                    Plotter = new PlotLogger();
-                    LoggingManager.Instance.AddLogger(Plotter);
+                    // Build the live-graph grid: N independent plot engines, each registered as a
+                    // logger so it receives every streamed sample, and each wrapped in a panel VM
+                    // that owns its own per-graph channel toggles (drawn from ActiveInputChannels).
+                    // Plotter aliases the first graph so existing header/flyout bindings still resolve.
+                    for (var i = 0; i < LiveGraphCount; i++)
+                    {
+                        var graphPlotter = new PlotLogger();
+                        LoggingManager.Instance.AddLogger(graphPlotter);
+                        LiveGraphs.Add(new LiveGraphPanelViewModel(i, graphPlotter, ActiveInputChannels));
+                    }
+                    Plotter = LiveGraphs[0].Plotter;
 
                     // Database logging
                     DbLogger = new DatabaseLogger(GetLoggingContextFactory());
@@ -633,9 +653,12 @@ public partial class DaqifiViewModel : ObservableObject, IFirmwareUpdateHost, IL
                         LoggingManager.Instance.ReloadPersistedLoggingSessions();
                     }
 
-                    // Configure default grid lines
-                    Plotter.ShowingMinorXAxisGrid = false;
-                    Plotter.ShowingMinorYAxisGrid = false;
+                    // Configure default grid lines on every live graph
+                    foreach (var graph in LiveGraphs)
+                    {
+                        graph.Plotter.ShowingMinorXAxisGrid = false;
+                        graph.Plotter.ShowingMinorYAxisGrid = false;
+                    }
 
                     // Firewall configuration requires administrator rights. Only attempt it
                     // on an elevated, non-test launch (production). Un-elevated runs (the UI

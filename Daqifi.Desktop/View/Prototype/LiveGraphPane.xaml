@@ -6,7 +6,6 @@
              xmlns:oxy="http://oxyplot.org/wpf"
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
              xmlns:vm="clr-namespace:Daqifi.Desktop.ViewModels"
-             xmlns:controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:DaqifiViewModel}"
              d:DesignHeight="800" d:DesignWidth="1200">
@@ -15,12 +14,12 @@
 
         <!-- Brushes come from /Resources/DesignTokens.xaml via App.xaml -->
 
-        <!-- Transparent button shell used by the channel legend items -->
+        <!-- Transparent button shell used by the channel legend chips -->
         <Style x:Key="LegendItemButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -28,6 +27,7 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bg"
                                 Background="{TemplateBinding Background}"
+                                CornerRadius="3"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
@@ -78,10 +78,7 @@
                                 <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/>
                                 <Setter TargetName="Thumb" Property="Margin" Value="0,0,2,0"/>
                             </Trigger>
-                            <!-- MultiTrigger so the checked-state green border survives hover.
-                                 A bare IsMouseOver=true Trigger setting Track.BorderBrush would
-                                 override the IsChecked=true setter when both conditions hold,
-                                 swapping the "logging on" green outline for TextSecondary. -->
+                            <!-- MultiTrigger so the checked-state green border survives hover. -->
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsMouseOver" Value="True"/>
@@ -98,11 +95,11 @@
             </Setter>
         </Style>
 
-        <!-- Icon buttons for the plot toolbar (zoom, save, settings) -->
+        <!-- Compact icon button for each panel's plot toolbar (zoom, save) -->
         <Style x:Key="PlotIconButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="6"/>
+            <Setter Property="Padding" Value="4"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -126,13 +123,172 @@
             </Setter>
         </Style>
 
+        <!-- Shared dark tracker used by every panel's PlotView -->
+        <ControlTemplate x:Key="LivePlotTracker">
+            <oxy:TrackerControl Position="{Binding Position}"
+                                LineExtents="{Binding PlotModel.PlotArea}"
+                                Background="{StaticResource SurfaceActive}"
+                                BorderBrush="{StaticResource BorderBright}"
+                                BorderThickness="1"
+                                LineStroke="{StaticResource BorderBright}"
+                                CornerRadius="4">
+                <TextBlock Text="{Binding Text}"
+                           Foreground="{StaticResource TextPrimary}"
+                           FontFamily="Consolas"
+                           FontSize="11"
+                           LineHeight="16"
+                           Margin="8,5"/>
+            </oxy:TrackerControl>
+        </ControlTemplate>
+
+        <!--
+            One live-graph panel: title + per-panel plot toolbar, the OxyPlot surface,
+            and a compact per-panel channel-toggle strip. DataContext is a
+            LiveGraphPanelViewModel. Each panel is independent — toggling a channel here
+            calls this panel's ToggleChannelCommand and affects only this plot.
+        -->
+        <DataTemplate x:Key="LiveGraphPanelTemplate" DataType="{x:Type vm:LiveGraphPanelViewModel}">
+            <Border Margin="4"
+                    Background="{StaticResource SurfaceRaised}"
+                    BorderBrush="{StaticResource BorderDim}"
+                    BorderThickness="1"
+                    CornerRadius="4">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Title + per-panel toolbar -->
+                    <Grid Grid.Row="0" Margin="10,6,4,4">
+                        <TextBlock Text="{Binding Title}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondary}"
+                                   VerticalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Style="{StaticResource PlotIconButton}"
+                                    Command="{Binding Plotter.ZoomOutXCommand}"
+                                    ToolTip="Zoom out (time)">
+                                <iconPacks:PackIconMaterial Kind="MagnifyMinusOutline" Width="12" Height="12"
+                                                            Foreground="{StaticResource TextSecondary}"/>
+                            </Button>
+                            <Button Style="{StaticResource PlotIconButton}"
+                                    Command="{Binding Plotter.ZoomInXCommand}"
+                                    ToolTip="Zoom in (time)">
+                                <iconPacks:PackIconMaterial Kind="MagnifyPlusOutline" Width="12" Height="12"
+                                                            Foreground="{StaticResource TextSecondary}"/>
+                            </Button>
+                            <Rectangle Width="1" Height="14" Margin="3,0"
+                                       Fill="{StaticResource BorderDim}" VerticalAlignment="Center"/>
+                            <Button Style="{StaticResource PlotIconButton}"
+                                    Command="{Binding Plotter.ZoomOutYCommand}"
+                                    ToolTip="Zoom out (value)">
+                                <iconPacks:PackIconMaterial Kind="ArrowExpandVertical" Width="12" Height="12"
+                                                            Foreground="{StaticResource TextSecondary}"/>
+                            </Button>
+                            <Button Style="{StaticResource PlotIconButton}"
+                                    Command="{Binding Plotter.ZoomInYCommand}"
+                                    ToolTip="Zoom in (value)">
+                                <iconPacks:PackIconMaterial Kind="ArrowCollapseVertical" Width="12" Height="12"
+                                                            Foreground="{StaticResource TextSecondary}"/>
+                            </Button>
+                            <Rectangle Width="1" Height="14" Margin="3,0"
+                                       Fill="{StaticResource BorderDim}" VerticalAlignment="Center"/>
+                            <Button Style="{StaticResource PlotIconButton}"
+                                    Command="{Binding Plotter.ResetZoomLiveGraphCommand}"
+                                    ToolTip="Reset zoom">
+                                <iconPacks:PackIconMaterial Kind="Crosshairs" Width="12" Height="12"
+                                                            Foreground="{StaticResource TextSecondary}"/>
+                            </Button>
+                            <Button Style="{StaticResource PlotIconButton}"
+                                    Command="{Binding Plotter.SaveLiveGraphCommand}"
+                                    ToolTip="Save as image">
+                                <iconPacks:PackIconMaterial Kind="ImageOutline" Width="12" Height="12"
+                                                            Foreground="{StaticResource TextSecondary}"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Plot surface -->
+                    <oxy:PlotView Grid.Row="1"
+                                  Model="{Binding PlotModel}"
+                                  Background="{StaticResource Surface}"
+                                  DefaultTrackerTemplate="{StaticResource LivePlotTracker}"/>
+
+                    <!-- Per-panel channel toggles -->
+                    <Border Grid.Row="2"
+                            BorderBrush="{StaticResource BorderDim}"
+                            BorderThickness="0,1,0,0"
+                            Padding="6,4"
+                            MaxHeight="76">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{Binding Channels}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:LiveGraphChannelToggleViewModel}">
+                                        <Button Command="{Binding DataContext.ToggleChannelCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource LegendItemButton}"
+                                                Margin="2"
+                                                Padding="5,2"
+                                                ToolTip="{Binding DeviceSerialNo}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Width="8" Height="8" CornerRadius="4"
+                                                        Background="{Binding ColorBrush}"
+                                                        Margin="0,0,5,0"
+                                                        VerticalAlignment="Center">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Opacity" Value="1.0"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsVisible}" Value="False">
+                                                                    <Setter Property="Opacity" Value="0.25"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                </Border>
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontSize="10"
+                                                           Foreground="{StaticResource TextPrimary}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Opacity" Value="1.0"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsVisible}" Value="False">
+                                                                    <Setter Property="Opacity" Value="0.4"/>
+                                                                    <Setter Property="TextDecorations" Value="Strikethrough"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
     </UserControl.Resources>
 
     <Grid Background="{StaticResource Surface}">
         <Grid.RowDefinitions>
             <!-- Header bar: session status + logging toggle -->
             <RowDefinition Height="Auto"/>
-            <!-- Main content: plot + channel sidebar -->
+            <!-- Grid of live graphs -->
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -144,11 +300,7 @@
                 Padding="20,0">
             <Grid MinHeight="48">
                 <Grid.ColumnDefinitions>
-                    <!-- Status chips (grow when present, empty when not logging) -->
                     <ColumnDefinition Width="*"/>
-                    <!-- Plot toolbar pill -->
-                    <ColumnDefinition Width="Auto"/>
-                    <!-- Logging toggle -->
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
@@ -157,8 +309,6 @@
                             Orientation="Horizontal"
                             VerticalAlignment="Center"
                             Visibility="{Binding IsLogging, Converter={StaticResource BoolToVis}}">
-
-                    <!-- Live pulse indicator -->
                     <Ellipse Width="7" Height="7"
                              Fill="{StaticResource StatusGreen}"
                              Margin="0,0,6,0"
@@ -169,8 +319,6 @@
                                Foreground="{StaticResource StatusGreen}"
                                VerticalAlignment="Center"
                                Margin="0,0,20,0"/>
-
-                    <!-- Mode -->
                     <TextBlock Text="MODE"
                                FontSize="9"
                                FontWeight="SemiBold"
@@ -182,135 +330,26 @@
                                FontSize="11"
                                Foreground="{StaticResource TextSecondary}"
                                VerticalAlignment="Center"/>
-
                     <TextBlock Text="  ·  "
                                FontSize="11"
                                Foreground="{StaticResource TextTertiary}"
                                VerticalAlignment="Center"/>
-
-                    <!-- Sample rate (stream mode) -->
-                    <StackPanel Orientation="Horizontal"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding IsSdCardLoggingActive, Converter={StaticResource InvertedBoolToVis}}">
-                        <TextBlock Text="RATE"
-                                   FontSize="9"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextTertiary}"
-                                   VerticalAlignment="Center"
-                                   Margin="0,1,5,0"/>
-                        <TextBlock FontFamily="Consolas"
-                                   FontSize="11"
-                                   Foreground="{StaticResource TextSecondary}"
-                                   VerticalAlignment="Center">
-                            <Run Text="{Binding SelectedStreamingFrequency}"/><Run Text=" Hz"/>
-                        </TextBlock>
-                    </StackPanel>
-
-                    <!-- Elapsed time (SD-card mode) -->
-                    <StackPanel Orientation="Horizontal"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding IsSdCardLoggingActive, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="ELAPSED"
-                                   FontSize="9"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextTertiary}"
-                                   VerticalAlignment="Center"
-                                   Margin="0,1,5,0"/>
-                        <TextBlock Text="{Binding SdLoggingElapsed}"
-                                   FontFamily="Consolas"
-                                   FontSize="11"
-                                   Foreground="{StaticResource TextSecondary}"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
+                    <TextBlock Text="RATE"
+                               FontSize="9"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextTertiary}"
+                               VerticalAlignment="Center"
+                               Margin="0,1,5,0"/>
+                    <TextBlock FontFamily="Consolas"
+                               FontSize="11"
+                               Foreground="{StaticResource TextSecondary}"
+                               VerticalAlignment="Center">
+                        <Run Text="{Binding SelectedStreamingFrequency}"/><Run Text=" Hz"/>
+                    </TextBlock>
                 </StackPanel>
 
-                <!-- Plot toolbar pill -->
-                <Border Grid.Column="1"
-                        Background="{StaticResource SurfaceRaised}"
-                        BorderBrush="{StaticResource BorderDim}"
-                        BorderThickness="1"
-                        CornerRadius="4"
-                        Margin="0,8,16,8"
-                        Padding="2"
-                        VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <Button Style="{StaticResource PlotIconButton}"
-                                Command="{Binding Plotter.ZoomOutXCommand}"
-                                ToolTip="Zoom out (time)">
-                            <iconPacks:PackIconMaterial Kind="MagnifyMinusOutline"
-                                                        Width="14" Height="14"
-                                                        Foreground="{StaticResource TextSecondary}"/>
-                        </Button>
-                        <Button Style="{StaticResource PlotIconButton}"
-                                Command="{Binding Plotter.ZoomInXCommand}"
-                                ToolTip="Zoom in (time)">
-                            <iconPacks:PackIconMaterial Kind="MagnifyPlusOutline"
-                                                        Width="14" Height="14"
-                                                        Foreground="{StaticResource TextSecondary}"/>
-                        </Button>
-
-                        <Rectangle Width="1" Height="16" Margin="2,0"
-                                   Fill="{StaticResource BorderDim}"
-                                   VerticalAlignment="Center"/>
-
-                        <Button Style="{StaticResource PlotIconButton}"
-                                Command="{Binding Plotter.ZoomOutYCommand}"
-                                ToolTip="Zoom out (analog)">
-                            <iconPacks:PackIconMaterial Kind="ArrowExpandVertical"
-                                                        Width="14" Height="14"
-                                                        Foreground="{StaticResource TextSecondary}"/>
-                        </Button>
-                        <Button Style="{StaticResource PlotIconButton}"
-                                Command="{Binding Plotter.ZoomInYCommand}"
-                                ToolTip="Zoom in (analog)">
-                            <iconPacks:PackIconMaterial Kind="ArrowCollapseVertical"
-                                                        Width="14" Height="14"
-                                                        Foreground="{StaticResource TextSecondary}"/>
-                        </Button>
-
-                        <Rectangle Width="1" Height="16" Margin="2,0"
-                                   Fill="{StaticResource BorderDim}"
-                                   VerticalAlignment="Center"/>
-
-                        <Button Style="{StaticResource PlotIconButton}"
-                                Command="{Binding Plotter.ResetZoomLiveGraphCommand}"
-                                ToolTip="Reset zoom">
-                            <iconPacks:PackIconMaterial Kind="Crosshairs"
-                                                        Width="14" Height="14"
-                                                        Foreground="{StaticResource TextSecondary}"/>
-                        </Button>
-
-                        <Rectangle Width="1" Height="16" Margin="2,0"
-                                   Fill="{StaticResource BorderDim}"
-                                   VerticalAlignment="Center"/>
-
-                        <Button Style="{StaticResource PlotIconButton}"
-                                Command="{Binding Plotter.SaveLiveGraphCommand}"
-                                CommandParameter="{Binding}"
-                                ToolTip="Save as image">
-                            <iconPacks:PackIconMaterial Kind="ImageOutline"
-                                                        Width="14" Height="14"
-                                                        Foreground="{StaticResource TextSecondary}"/>
-                        </Button>
-                        <Button Style="{StaticResource PlotIconButton}"
-                                Command="{Binding OpenLiveGraphSettingsCommand}"
-                                ToolTip="Plot settings">
-                            <iconPacks:PackIconMaterial Kind="Cog"
-                                                        Width="14" Height="14"
-                                                        Foreground="{StaticResource TextSecondary}"/>
-                        </Button>
-                        <Button Style="{StaticResource PlotIconButton}"
-                                Command="{Binding OpenLogSummaryCommand}"
-                                ToolTip="Log summary (debug)">
-                            <iconPacks:PackIconMaterial Kind="Bug"
-                                                        Width="14" Height="14"
-                                                        Foreground="{StaticResource TextSecondary}"/>
-                        </Button>
-                    </StackPanel>
-                </Border>
-
                 <!-- Logging toggle -->
-                <StackPanel Grid.Column="2"
+                <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
                             VerticalAlignment="Center">
                     <TextBlock VerticalAlignment="Center"
@@ -321,10 +360,6 @@
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Text" Value="LOGGING OFF"/>
-                                <!-- Keep the UIA Name in sync with the displayed Text so the
-                                     logging state is exposed to automation and screen readers.
-                                     (A TextBlock's Name does not track Text changes made by a
-                                     Style trigger, so set Name explicitly alongside Text.) -->
                                 <Setter Property="AutomationProperties.Name" Value="LOGGING OFF"/>
                                 <Setter Property="Foreground" Value="{StaticResource TextTertiary}"/>
                                 <Style.Triggers>
@@ -346,310 +381,68 @@
             </Grid>
         </Border>
 
-        <!-- ── Main content area ── -->
+        <!-- ── Grid of live graphs ── -->
         <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
+            <ItemsControl ItemsSource="{Binding LiveGraphs}"
+                          Margin="4"
+                          ItemTemplate="{StaticResource LiveGraphPanelTemplate}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Rows="2"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
 
-            <!-- Plot area -->
-            <Grid Grid.Column="0">
-                <oxy:PlotView x:Name="DataLog"
-                              Model="{Binding Plotter.PlotModel}"
-                              Background="{StaticResource Surface}"
-                              TabIndex="0"
-                              Visibility="{Binding IsSdCardLoggingActive, Converter={StaticResource InvertedBoolToVis}}">
-                    <oxy:PlotView.DefaultTrackerTemplate>
-                        <ControlTemplate>
-                            <oxy:TrackerControl Position="{Binding Position}"
-                                                LineExtents="{Binding PlotModel.PlotArea}"
-                                                Background="{StaticResource SurfaceActive}"
-                                                BorderBrush="{StaticResource BorderBright}"
-                                                BorderThickness="1"
-                                                LineStroke="{StaticResource BorderBright}"
-                                                CornerRadius="4">
-                                <TextBlock Text="{Binding Text}"
-                                           Foreground="{StaticResource TextPrimary}"
-                                           FontFamily="Consolas"
-                                           FontSize="11"
-                                           LineHeight="18"
-                                           Margin="10,7"/>
-                            </oxy:TrackerControl>
-                        </ControlTemplate>
-                    </oxy:PlotView.DefaultTrackerTemplate>
-                </oxy:PlotView>
-
-                <!-- Empty-state overlay: shown when no channels are streaming
-                     AND we're not in SD-card logging mode (otherwise the
-                     "Logging to Device" panel below covers this state). -->
-                <Border IsHitTestVisible="False"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Padding="24,16"
-                        Background="{StaticResource SurfaceRaised}"
-                        BorderBrush="{StaticResource BorderDim}"
-                        BorderThickness="1"
-                        CornerRadius="6">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <MultiDataTrigger>
-                                    <MultiDataTrigger.Conditions>
-                                        <Condition Binding="{Binding ActiveInputChannels.Count}" Value="0"/>
-                                        <Condition Binding="{Binding IsSdCardLoggingActive}" Value="False"/>
-                                    </MultiDataTrigger.Conditions>
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </MultiDataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <StackPanel HorizontalAlignment="Center">
-                        <iconPacks:PackIconMaterial Kind="ChartLineVariant"
-                                                    Width="28" Height="28"
-                                                    Foreground="{StaticResource TextTertiary}"
-                                                    HorizontalAlignment="Center"
-                                                    Margin="0,0,0,10"/>
-                        <TextBlock Text="No channels streaming"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextSecondary}"
-                                   HorizontalAlignment="Center"/>
-                        <TextBlock Text="Enable channels in the Channels tab to see live data."
-                                   FontSize="11"
-                                   Foreground="{StaticResource TextTertiary}"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,4,0,0"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- SD-card logging overlay: replaces the (necessarily empty)
-                     plot when the device is recording to its own SD card. A bare
-                     Border has no UI Automation peer (it never surfaces in the UIA
-                     tree, visible or not), so the automation harness asserts this
-                     panel is displayed via the SdLoggingElapsedText TextBlock below
-                     — a control that does have a peer and is rendered only while this
-                     overlay is (Visibility binds to IsSdCardLoggingActive). -->
-                <Border IsHitTestVisible="False"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Padding="32,24"
-                        MinWidth="380"
-                        Background="{StaticResource SurfaceRaised}"
-                        BorderBrush="{StaticResource BorderDim}"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Visibility="{Binding IsSdCardLoggingActive, Converter={StaticResource BoolToVis}}">
-                    <StackPanel HorizontalAlignment="Center">
-                        <Grid HorizontalAlignment="Center" Margin="0,0,0,14">
-                            <Ellipse Width="44" Height="44"
-                                     Fill="{StaticResource StatusGreen}"
-                                     Opacity="0.15"/>
-                            <iconPacks:PackIconMaterial Kind="RecordRec"
-                                                        Width="28" Height="28"
-                                                        Foreground="{StaticResource StatusGreen}"
-                                                        HorizontalAlignment="Center"
-                                                        VerticalAlignment="Center"/>
-                        </Grid>
-
-                        <TextBlock Text="Logging to Device"
-                                   FontSize="15"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimary}"
-                                   HorizontalAlignment="Center"/>
-
-                        <!-- Elapsed clock + the overlay's UI-automation hook. A bare Border has
-                             no automation peer, so this TextBlock (which does) is what the harness
-                             finds to assert the panel is displayed: it is in the UIA tree only while
-                             the overlay is. AutomationProperties.Name is pinned to the bound value so
-                             the once-a-second update is reliably readable out-of-process (mirrors the
-                             LoggingStatusText / PlotStatsText hooks). -->
-                        <TextBlock Text="{Binding SdLoggingElapsed}"
-                                   AutomationProperties.AutomationId="SdLoggingElapsedText"
-                                   AutomationProperties.Name="{Binding SdLoggingElapsed}"
-                                   FontFamily="Consolas"
-                                   FontSize="22"
-                                   Foreground="{StaticResource StatusGreen}"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,10,0,0"/>
-
-                        <StackPanel Orientation="Horizontal"
-                                    HorizontalAlignment="Center"
-                                    Margin="0,10,0,0">
-                            <TextBlock Text="FORMAT"
-                                       FontSize="9"
-                                       FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextTertiary}"
-                                       VerticalAlignment="Center"
-                                       Margin="0,1,5,0"/>
-                            <TextBlock Text="{Binding SelectedSdCardLogFormat}"
-                                       FontFamily="Consolas"
-                                       FontSize="11"
-                                       Foreground="{StaticResource TextSecondary}"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-
-                        <TextBlock Text="Live preview is unavailable in this mode."
-                                   FontSize="11"
-                                   Foreground="{StaticResource TextSecondary}"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,16,0,0"/>
-                        <TextBlock Text="Recorded data will appear in Logged Data after retrieval."
-                                   FontSize="11"
-                                   Foreground="{StaticResource TextTertiary}"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,2,0,0"/>
-                    </StackPanel>
-                </Border>
-
-                <!--
-                    Invisible plot-stats hook for out-of-process UI automation (issue #560).
-                    OxyPlot renders points to a single canvas with no per-point UI Automation
-                    elements, so the harness reads this element's Name to assert the live plot
-                    is rendering believable data while streaming (series count, point growth,
-                    finite/plausible values). Opacity=0 + IsHitTestVisible=False keeps it fully
-                    invisible and non-interactive while remaining present and readable in the UIA
-                    tree (a Collapsed element would be pruned from it). Both Text and
-                    AutomationProperties.Name are bound so the Name tracks the value, mirroring
-                    the LoggingStatusText hook.
-                -->
-                <TextBlock AutomationProperties.AutomationId="PlotStatsText"
-                           Text="{Binding Plotter.PlotStatsSummary}"
-                           AutomationProperties.Name="{Binding Plotter.PlotStatsSummary}"
-                           HorizontalAlignment="Left"
-                           VerticalAlignment="Top"
-                           Opacity="0"
-                           IsHitTestVisible="False"/>
-            </Grid>
-
-            <!-- ── Channel legend sidebar ── -->
-            <Border Grid.Column="1"
+            <!-- Empty-state overlay: shown when no channels are streaming -->
+            <Border IsHitTestVisible="False"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Padding="24,16"
                     Background="{StaticResource SurfaceRaised}"
                     BorderBrush="{StaticResource BorderDim}"
-                    BorderThickness="1,0,0,0"
-                    MinWidth="180"
-                    MaxWidth="220">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- Sidebar header -->
-                    <Border Grid.Row="0"
-                            Padding="14,10"
-                            BorderBrush="{StaticResource BorderDim}"
-                            BorderThickness="0,0,0,1">
-                        <TextBlock Text="CHANNELS"
-                                   FontSize="10"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextTertiary}"/>
-                    </Border>
-
-                    <!-- Sidebar empty state — visible when no active channels -->
-                    <TextBlock Grid.Row="1"
-                               Text="No channels active yet."
+                    BorderThickness="1"
+                    CornerRadius="6">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ActiveInputChannels.Count}" Value="0">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel HorizontalAlignment="Center">
+                    <iconPacks:PackIconMaterial Kind="ChartLineVariant"
+                                                Width="28" Height="28"
+                                                Foreground="{StaticResource TextTertiary}"
+                                                HorizontalAlignment="Center"
+                                                Margin="0,0,0,10"/>
+                    <TextBlock Text="No channels streaming"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextSecondary}"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="Enable channels in the Channels tab, then toggle logging on."
                                FontSize="11"
                                Foreground="{StaticResource TextTertiary}"
-                               TextWrapping="Wrap"
-                               Margin="14,12,14,0"
-                               VerticalAlignment="Top">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding ActiveInputChannels.Count}" Value="0">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-
-                    <!-- Channel list -->
-                    <ListView Grid.Row="1"
-                              ItemsSource="{Binding ActiveInputChannels}"
-                              Background="Transparent"
-                              BorderThickness="0"
-                              HorizontalContentAlignment="Stretch"
-                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListView.ItemContainerStyle>
-                            <Style TargetType="ListViewItem">
-                                <Setter Property="Focusable" Value="False"/>
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Padding" Value="0"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListViewItem">
-                                            <ContentPresenter/>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListView.ItemContainerStyle>
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <Button Command="{Binding DataContext.ToggleChannelVisibilityCommand,
-                                                          RelativeSource={RelativeSource AncestorType=ListView}}"
-                                        CommandParameter="{Binding}"
-                                        Padding="14,9"
-                                        Style="{StaticResource LegendItemButton}">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-
-                                        <!-- Color stripe -->
-                                        <Border Grid.Column="0"
-                                                Width="3"
-                                                Height="34"
-                                                CornerRadius="1.5"
-                                                Background="{Binding ChannelColorBrush}"
-                                                Margin="0,0,10,0"
-                                                VerticalAlignment="Center">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="Opacity" Value="1.0"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsVisible}" Value="False">
-                                                            <Setter Property="Opacity" Value="0.25"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                        </Border>
-
-                                        <!-- Channel name + device serial -->
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}"
-                                                       FontSize="12"
-                                                       Foreground="{StaticResource TextPrimary}">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Opacity" Value="1.0"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsVisible}" Value="False">
-                                                                <Setter Property="Opacity" Value="0.35"/>
-                                                                <Setter Property="TextDecorations" Value="Strikethrough"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
-                                            <TextBlock Text="{Binding DeviceSerialNo}"
-                                                       FontSize="9"
-                                                       Foreground="{StaticResource TextTertiary}"
-                                                       Margin="0,2,0,0"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </Button>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </Grid>
+                               HorizontalAlignment="Center"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
             </Border>
+
+            <!--
+                Invisible plot-stats hook for out-of-process UI automation (issue #560).
+                Bound to the first graph's plotter. Opacity=0 + IsHitTestVisible=False keeps it
+                present and readable in the UIA tree without being visible.
+            -->
+            <TextBlock AutomationProperties.AutomationId="PlotStatsText"
+                       Text="{Binding Plotter.PlotStatsSummary}"
+                       AutomationProperties.Name="{Binding Plotter.PlotStatsSummary}"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top"
+                       Opacity="0"
+                       IsHitTestVisible="False"/>
         </Grid>
     </Grid>
 </UserControl>
